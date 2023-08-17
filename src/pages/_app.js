@@ -1,5 +1,18 @@
-import '@/styles/globals.css'
+// MODULES
+import React from 'react';
 
-export default function App({ Component, pageProps }) {
-  return <Component {...pageProps} />
+// STYLES
+import '../styles/index.css';
+
+class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {};
+  }
+
+  render() {
+    return <this.props.Component {...this.props.pageProps} />;
+  }
 }
+
+export default App;

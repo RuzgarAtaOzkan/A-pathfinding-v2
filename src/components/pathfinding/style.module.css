@@ -1,0 +1,29 @@
+.comppathfinding {
+
+}
+
+.comppathfinding-header {
+  display: flex; justify-content: center; align-items: center;
+}
+
+.comppathfinding-header-btn {
+  padding: 1rem 2rem;
+  border-radius: 6px;
+  color: rgb(255, 255, 255);
+  font-weight: bold; font-size: 24px;
+  background-color: rgb(173, 98, 55);
+  margin: 1rem;
+  cursor: pointer;
+}
+
+.comppathfinding-nodes {
+  display: flex; justify-content: flex-start; align-items: center;
+  flex-wrap: wrap;
+}
+
+.comppathfinding-nodes-node {
+  border: 1px solid black;
+  background-color: white;
+  transition: all .3s ease;
+  font-size: 12px;
+}
