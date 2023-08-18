@@ -24,6 +24,6 @@
 .comppathfinding-nodes-node {
   border: 1px solid black;
   background-color: white;
-  transition: all .3s ease;
+  transition: all .2s ease;
   font-size: 12px;
 }

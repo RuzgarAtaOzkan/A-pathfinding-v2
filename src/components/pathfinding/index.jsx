@@ -38,7 +38,7 @@ class Pathfinding extends React.Component {
       // node props
       node_start: null, // child index
       node_end: null, // child index
-      node_current: null,
+      node_current: null, // child index
     };
 
     // functions
@@ -63,29 +63,47 @@ class Pathfinding extends React.Component {
       return;
     }
 
-    const node_start = this.ref_nodes.current.children[this.state.node_start];
-    const node_end = this.ref_nodes.current.children[this.state.node_end];
+    // Calculate static values here to pass them into update for performance
+    const nodes = this.ref_nodes.current.children;
+    const node_start = nodes[this.state.node_start];
+    const node_end = nodes[this.state.node_end];
+
+    const nodes_column_count = parseInt(
+      this.ref_nodes.current.parentNode.getBoundingClientRect().width /
+        this.NODE_SIZE
+    );
+
+    const nodes_ctr_rect =
+      this.ref_nodes.current.parentNode.getBoundingClientRect();
 
     // set the current node as the start node then keep updating the current node
     if (this.state.node_current === null) {
       this.state.node_current = this.state.node_start;
     }
 
-    const interval_id = setInterval(() => {
-      this.update(node_start, node_end);
+    // 1. first interval for exploring walkable paths
+    const interval_id_explore = setInterval(() => {
+      this.update(
+        node_start,
+        node_end,
+        nodes,
+        nodes_column_count,
+        nodes_ctr_rect
+      );
     }, this.UPDATE_INTERVAL_MS);
   }
 
-  update(node_start, node_end) {
-    const node_current =
-      this.ref_nodes.current.children[this.state.node_current];
+  update(node_start, node_end, nodes, nodes_column_count, nodes_ctr_rect) {
+    const node_current = nodes[this.state.node_current];
 
     // current neighbours (valid html elements)
     let neighbours = [];
-    const current_x = Number(node_current.getAttribute('data-x'));
-    const current_y = Number(node_current.getAttribute('data-y'));
 
-    // Try to find neighbours around the current node
+    // current selected node to search neighbours around
+    const node_current_x = Number(node_current.getAttribute('data-x'));
+    const node_current_y = Number(node_current.getAttribute('data-y'));
+
+    // Try to find neighbours around the current node (path type) and calculate their cost values
     for (let i = -1; i < 2; i++) {
       for (let j = -1; j < 2; j++) {
         if (i === 0 && j === 0) {
@@ -93,30 +111,40 @@ class Pathfinding extends React.Component {
           continue;
         }
 
-        const neighbour_x = current_x + this.NODE_SIZE * j;
-        const neighbour_y = current_y + this.NODE_SIZE * i;
+        const node_neighbour_x = node_current_x + this.NODE_SIZE * j;
+        const node_neighbour_y = node_current_y + this.NODE_SIZE * i;
 
-        const nodes = this.ref_nodes.current.children;
+        // check if neighbour is out of boundaries
+        if (
+          node_neighbour_x < 0 ||
+          node_neighbour_y < 0 ||
+          node_neighbour_x >= nodes_ctr_rect.width - this.NODE_SIZE ||
+          node_neighbour_y >= nodes_ctr_rect.height - this.NODE_SIZE
+        ) {
+          continue;
+        }
 
-        for (let k = 0; k < nodes.length; k++) {
-          const node_x = Number(nodes[k].getAttribute('data-x'));
-          const node_y = Number(nodes[k].getAttribute('data-y'));
-          const node_type = nodes[k].getAttribute('data-type');
+        const row_index =
+          (node_neighbour_y / this.NODE_SIZE) * nodes_column_count;
+        const column_index = node_neighbour_x / this.NODE_SIZE;
+        const node_neighbour_index = row_index + column_index;
+
+        if (nodes[node_neighbour_index]) {
+          const node_x = Number(
+            nodes[node_neighbour_index].getAttribute('data-x')
+          );
+          const node_y = Number(
+            nodes[node_neighbour_index].getAttribute('data-y')
+          );
+          const node_type =
+            nodes[node_neighbour_index].getAttribute('data-type');
 
           if (
-            node_x === neighbour_x &&
-            node_y === neighbour_y &&
             node_type !== this.NODE_TYPE_START &&
             node_type !== this.NODE_TYPE_PATH &&
             node_type !== this.NODE_TYPE_WALL
           ) {
-            // new neighbour data set
-
-            if (
-              node_x === neighbour_x &&
-              node_y === neighbour_y &&
-              node_type === this.NODE_TYPE_END
-            ) {
+            if (node_type === this.NODE_TYPE_END) {
               console.log('finished');
               return;
             }
@@ -132,14 +160,9 @@ class Pathfinding extends React.Component {
               node_y - Number(node_start.getAttribute('data-y'))
             );
 
-            // the ones on the diagonal corners
-            if (distance_x && distance_y) {
-              gcost = Math.sqrt(
-                distance_x * distance_x + distance_y * distance_y
-              );
-            } else {
-              gcost = distance_x + distance_y;
-            }
+            gcost = Math.sqrt(
+              distance_x * distance_x + distance_y * distance_y
+            );
 
             distance_x = Math.abs(
               node_x - Number(node_end.getAttribute('data-x'))
@@ -148,81 +171,109 @@ class Pathfinding extends React.Component {
               node_y - Number(node_end.getAttribute('data-y'))
             );
 
-            if (distance_x && distance_y) {
-              hcost = Math.sqrt(
-                distance_x * distance_x + distance_y * distance_y
-              );
-            } else {
-              hcost = distance_x + distance_y;
-            }
+            hcost = Math.sqrt(
+              distance_x * distance_x + distance_y * distance_y
+            );
 
             fcost = gcost + hcost;
 
-            nodes[k].setAttribute('data-gcost', gcost);
-            nodes[k].setAttribute('data-hcost', hcost);
-            nodes[k].setAttribute('data-fcost', fcost);
+            nodes[node_neighbour_index].setAttribute('data-gcost', gcost);
+            nodes[node_neighbour_index].setAttribute('data-hcost', hcost);
+            nodes[node_neighbour_index].setAttribute('data-fcost', fcost);
 
             /**
-             *             nodes[k].innerHTML =
-              'g:' +
+             * 
+             * 
+             *             nodes[node_neighbour_index].innerHTML =
+              'g: ' +
               parseInt(gcost) +
               '<br />' +
-              'h:' +
+              'h: ' +
               parseInt(hcost) +
               '<br />' +
-              'f:' +
+              'f: ' +
               parseInt(fcost);
-             * 
              */
 
-            nodes[k].setAttribute('data-type', this.NODE_TYPE_NEIGHBOUR);
-            nodes[k].style.backgroundColor = this.NODE_COLOR_NEIGHBOUR;
+            nodes[node_neighbour_index].setAttribute(
+              'data-type',
+              this.NODE_TYPE_NEIGHBOUR
+            );
+            nodes[node_neighbour_index].style.backgroundColor =
+              this.NODE_COLOR_NEIGHBOUR;
 
-            neighbours.push(nodes[k]);
+            neighbours.push(nodes[node_neighbour_index]);
           }
         }
       }
     }
 
-    // if current node surrounded with path nodes and neighbours is empty jump back into the remaining neighbours
+    // if current node surrounded with path nodes and no neighbours is around jump back into the remaining neighbours in the whole nodes
     if (neighbours.length === 0) {
-      for (let i = 0; i < this.ref_nodes.current.children.length; i++) {
-        if (
-          this.ref_nodes.current.children[i].getAttribute('data-type') ===
-          this.NODE_TYPE_NEIGHBOUR
-        ) {
-          neighbours.push(this.ref_nodes.current.children[i]);
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].getAttribute('data-type') === this.NODE_TYPE_NEIGHBOUR) {
+          neighbours.push(nodes[i]);
         }
       }
     }
 
+    // check if there are neighbours with the same fcost
+    let samefcost = false;
     for (let i = 0; i < neighbours.length; i++) {
-      for (let j = 0; j < neighbours.length; j++) {
-        if (neighbours[j + 1]) {
-          const current = neighbours[j];
-          const next = neighbours[j + 1];
+      if (samefcost) {
+        break;
+      }
 
-          if (
-            Number(current.getAttribute('data-fcost')) >
-            Number(next.getAttribute('data-fcost'))
-          ) {
-            neighbours[j] = next;
-            neighbours[j + 1] = current;
-          }
+      for (let j = 0; j < neighbours.length; j++) {
+        if (i === j) {
+          continue;
+        }
+
+        if (
+          neighbours[i].getAttribute('data-fcost') ===
+          neighbours[j].getAttribute('data-fcost')
+        ) {
+          samefcost = true;
+          break;
         }
       }
     }
 
-    if (!neighbours[0]) {
-      return;
+    console.log(samefcost);
+
+    // new node choosen for current path
+    let node_current_new = null;
+
+    samefcost = false;
+
+    if (samefcost) {
+      // if there are same fcost look for the lowest gcost
+      let lowestgcost = Number.MAX_SAFE_INTEGER;
+
+      for (let i = 0; i < neighbours.length; i++) {
+        if (Number(neighbours[i].getAttribute('data-gcost')) < lowestgcost) {
+          node_current_new = neighbours[i];
+          lowestgcost = Number(neighbours[i].getAttribute('data-gcost'));
+        }
+      }
+    } else {
+      // find the lowest fcost neighbour
+      let lowestfcost = Number.MAX_SAFE_INTEGER;
+
+      for (let i = 0; i < neighbours.length; i++) {
+        if (Number(neighbours[i].getAttribute('data-fcost')) < lowestfcost) {
+          node_current_new = neighbours[i];
+          lowestfcost = Number(neighbours[i].getAttribute('data-fcost'));
+        }
+      }
     }
 
-    neighbours[0].setAttribute('data-type', this.NODE_TYPE_PATH);
-    neighbours[0].style.backgroundColor = this.NODE_COLOR_PATH;
+    node_current_new.setAttribute('data-type', this.NODE_TYPE_PATH);
+    node_current_new.style.backgroundColor = this.NODE_COLOR_PATH;
 
     this.setState({
       ...this.state,
-      node_current: Number(neighbours[0].getAttribute('data-index')),
+      node_current: Number(node_current_new.getAttribute('data-index')),
     });
   }
 
@@ -289,6 +340,10 @@ class Pathfinding extends React.Component {
     nodes_children[index].setAttribute('data-type', this.NODE_TYPE_START);
 
     console.log(e.target);
+
+    console.log(
+      this.ref_nodes.current.parentNode.getBoundingClientRect().width
+    );
 
     if (index === this.state.node_end) {
       this.setState({
