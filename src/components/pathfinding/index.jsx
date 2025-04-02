@@ -47,11 +47,11 @@ class Pathfinding extends React.Component {
     this.reset = this.reset.bind(this);
 
     this.nodes_create = this.nodes_create.bind(this);
-    this.nodes_click = this.nodes_click.bind(this);
-    this.nodes_right_click = this.nodes_right_click.bind(this);
-    this.nodes_mouse_down = this.nodes_mouse_down.bind(this);
-    this.nodes_mouse_up = this.nodes_mouse_up.bind(this);
-    this.nodes_mouse_over = this.nodes_mouse_over.bind(this);
+    this.on_click = this.on_click.bind(this);
+    this.on_right_click = this.on_right_click.bind(this);
+    this.on_mouse_down = this.on_mouse_down.bind(this);
+    this.on_mouse_up = this.on_mouse_up.bind(this);
+    this.on_mouse_over = this.on_mouse_over.bind(this);
 
     // refs
     this.ref_nodes = React.createRef();
@@ -69,39 +69,28 @@ class Pathfinding extends React.Component {
     const node_end = nodes[this.state.node_end];
 
     const nodes_column_count = parseInt(
-      this.ref_nodes.current.parentNode.getBoundingClientRect().width /
-        this.NODE_SIZE
+      this.ref_nodes.current.getBoundingClientRect().width / this.NODE_SIZE
     );
 
-    const nodes_ctr_rect =
-      this.ref_nodes.current.parentNode.getBoundingClientRect();
+    const nodes_rect = this.ref_nodes.current.getBoundingClientRect();
 
-    // set the current node as the start node then keep updating the current node
-    if (this.state.node_current === null) {
-      this.state.node_current = this.state.node_start;
-    }
+    this.state.node_current = this.state.node_start;
 
     // 1. first interval for exploring walkable paths
     const interval_id_explore = setInterval(() => {
-      this.update(
-        node_start,
-        node_end,
-        nodes,
-        nodes_column_count,
-        nodes_ctr_rect
-      );
+      this.update(node_start, node_end, nodes, nodes_column_count, nodes_rect);
     }, this.UPDATE_INTERVAL_MS);
   }
 
-  update(node_start, node_end, nodes, nodes_column_count, nodes_ctr_rect) {
+  update(node_start, node_end, nodes, nodes_column_count, nodes_rect) {
     const node_current = nodes[this.state.node_current];
-
-    // current neighbours (valid html elements)
-    let neighbours = [];
 
     // current selected node to search neighbours around
     const node_current_x = Number(node_current.getAttribute('data-x'));
     const node_current_y = Number(node_current.getAttribute('data-y'));
+
+    // current neighbours (valid html elements)
+    let neighbours = [];
 
     // Try to find neighbours around the current node (path type) and calculate their cost values
     for (let i = -1; i < 2; i++) {
@@ -118,11 +107,17 @@ class Pathfinding extends React.Component {
         if (
           node_neighbour_x < 0 ||
           node_neighbour_y < 0 ||
-          node_neighbour_x >= nodes_ctr_rect.width - this.NODE_SIZE ||
-          node_neighbour_y >= nodes_ctr_rect.height - this.NODE_SIZE
+          node_neighbour_x >= nodes_rect.width - this.NODE_SIZE ||
+          node_neighbour_y >= nodes_rect.height - this.NODE_SIZE
         ) {
           continue;
         }
+
+        /*
+          ####### 0
+          ###@### 1
+          ####### 2
+        */
 
         const row_index =
           (node_neighbour_y / this.NODE_SIZE) * nodes_column_count;
@@ -181,10 +176,8 @@ class Pathfinding extends React.Component {
             nodes[node_neighbour_index].setAttribute('data-hcost', hcost);
             nodes[node_neighbour_index].setAttribute('data-fcost', fcost);
 
-            /**
-             * 
-             * 
-             *             nodes[node_neighbour_index].innerHTML =
+            /*
+            nodes[node_neighbour_index].innerHTML =
               'g: ' +
               parseInt(gcost) +
               '<br />' +
@@ -193,7 +186,7 @@ class Pathfinding extends React.Component {
               '<br />' +
               'f: ' +
               parseInt(fcost);
-             */
+            */
 
             nodes[node_neighbour_index].setAttribute(
               'data-type',
@@ -207,6 +200,8 @@ class Pathfinding extends React.Component {
         }
       }
     }
+
+    console.log(neighbours);
 
     // if current node surrounded with path nodes and no neighbours is around jump back into the remaining neighbours in the whole nodes
     if (neighbours.length === 0) {
@@ -273,6 +268,7 @@ class Pathfinding extends React.Component {
 
     this.setState({
       ...this.state,
+
       node_current: Number(node_current_new.getAttribute('data-index')),
     });
   }
@@ -281,17 +277,17 @@ class Pathfinding extends React.Component {
 
   // cleans all the children of the nodes container and create them from scratch
   nodes_create() {
-    const nodes_ctr = this.ref_nodes.current;
-    const nodes_rect = nodes_ctr.getBoundingClientRect();
+    const nodes_div = this.ref_nodes.current;
+    const nodes_rect = nodes_div.getBoundingClientRect();
 
     // remove all children of the nodes div before creating nodes
-    while (nodes_ctr.children[0]) {
-      nodes_ctr.removeChild(nodes_ctr.children[0]);
+    while (nodes_div.children[0]) {
+      nodes_div.removeChild(nodes_div.children[0]);
     }
 
     // calculating how many nodes a column should have by dividing the parent element width with node size
     const column_count = parseInt(
-      nodes_ctr.parentNode.getBoundingClientRect().width / this.NODE_SIZE
+      nodes_div.getBoundingClientRect().width / this.NODE_SIZE
     );
     const node_count = column_count * 40;
 
@@ -302,7 +298,7 @@ class Pathfinding extends React.Component {
       node.style.width = this.NODE_SIZE + 'px';
       node.style.height = this.NODE_SIZE + 'px';
 
-      node.classList.add(style['comppathfinding-nodes-node']);
+      node.classList.add(style['pathfinding-nodes-node']);
 
       this.ref_nodes.current.appendChild(node);
 
@@ -317,8 +313,11 @@ class Pathfinding extends React.Component {
   }
 
   // for choosing a starting node by clicking on the nodes parent
-  nodes_click(e) {
+  on_click(e) {
     // e.target gives the parent node for some reason after user moves mouse while mouse down, if it is the parent node return.
+
+    console.log(e.target);
+
     if (e.target === this.ref_nodes.current) {
       return;
     }
@@ -339,15 +338,10 @@ class Pathfinding extends React.Component {
     nodes_children[index].style.backgroundColor = this.NODE_COLOR_START;
     nodes_children[index].setAttribute('data-type', this.NODE_TYPE_START);
 
-    console.log(e.target);
-
-    console.log(
-      this.ref_nodes.current.parentNode.getBoundingClientRect().width
-    );
-
     if (index === this.state.node_end) {
       this.setState({
         ...this.state,
+
         node_start: index,
         node_end: null,
       });
@@ -357,12 +351,13 @@ class Pathfinding extends React.Component {
 
     this.setState({
       ...this.state,
+
       node_start: index,
     });
   }
 
   // for choosing an end node by clicking on the nodes
-  nodes_right_click(e) {
+  on_right_click(e) {
     e.preventDefault();
 
     const nodes_children = this.ref_nodes.current.children;
@@ -397,7 +392,7 @@ class Pathfinding extends React.Component {
     });
   }
 
-  nodes_mouse_down(e) {
+  on_mouse_down(e) {
     e.preventDefault();
 
     this.setState({
@@ -406,7 +401,7 @@ class Pathfinding extends React.Component {
     });
   }
 
-  nodes_mouse_up(e) {
+  on_mouse_up(e) {
     e.preventDefault();
 
     this.setState({
@@ -415,7 +410,7 @@ class Pathfinding extends React.Component {
     });
   }
 
-  nodes_mouse_over(e) {
+  on_mouse_over(e) {
     e.preventDefault();
 
     if (!this.state.mouse_down) {
@@ -463,7 +458,6 @@ class Pathfinding extends React.Component {
 
   componentDidMount() {
     this.nodes_create();
-
     window.addEventListener('resize', this.nodes_create);
   }
 
@@ -475,18 +469,18 @@ class Pathfinding extends React.Component {
 
   render() {
     return (
-      <div className={cn(style['comppathfinding'])}>
-        <div className={cn(style['comppathfinding-header'])}>
+      <div className={cn(style['pathfinding'])}>
+        <div className={cn(style['pathfinding-header'])}>
           <button
             onClick={this.start}
-            className={cn(style['comppathfinding-header-btn'])}
+            className={cn(style['pathfinding-header-btn'])}
           >
             START
           </button>
 
           <button
             onClick={this.reset}
-            className={cn(style['comppathfinding-header-btn'])}
+            className={cn(style['pathfinding-header-btn'])}
           >
             RESET
           </button>
@@ -494,12 +488,12 @@ class Pathfinding extends React.Component {
 
         <div
           ref={this.ref_nodes}
-          className={cn(style['comppathfinding-nodes'])}
-          onClick={this.nodes_click}
-          onContextMenu={this.nodes_right_click}
-          onMouseDown={this.nodes_mouse_down}
-          onMouseUp={this.nodes_mouse_up}
-          onMouseOver={this.nodes_mouse_over}
+          className={cn(style['pathfinding-nodes'])}
+          onClick={this.on_click}
+          onContextMenu={this.on_right_click}
+          onMouseDown={this.on_mouse_down}
+          onMouseUp={this.on_mouse_up}
+          onMouseOver={this.on_mouse_over}
         ></div>
       </div>
     );

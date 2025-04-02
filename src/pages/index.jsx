@@ -24,7 +24,7 @@ class Home extends React.Component {
   render() {
     return (
       <>
-        <Head title="" desc="" />
+        <Head title="A* Pathfinding Visualization" desc="" />
 
         <Layout_user>
           <Pathfinding />
